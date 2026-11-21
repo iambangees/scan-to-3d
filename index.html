@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scan to 3D — turn any photo into a 3D-printable model</title>
+<meta name="description" content="Turn any photo into a 3D-printable lithophane or relief plate, right in your browser. Free, private, nothing is uploaded.">
+<meta name="theme-color" content="#0b3b4f">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta property="og:title" content="Scan to 3D">
+<meta property="og:description" content="Turn any photo into a 3D-printable lithophane or relief plate — in your browser, nothing uploaded.">
+<meta property="og:image" content="banner.png">
+<style>
+  :root{
+    --bg:#0a2531; --panel:#0e3242; --panel2:#0b2a38; --line:#1d4a5e;
+    --ink:#eaf6fb; --muted:#9fc3d1; --accent:#2dd4ee; --accent-deep:#0e9bbd;
+    --good:#3ddc97; --warn:#ffd166;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55}
+  .wrap{max-width:1060px;margin:0 auto;padding:22px 16px 40px}
+  header.top{text-align:center;padding:18px 0 6px}
+  h1{font-size:clamp(34px,7vw,54px);margin:0;letter-spacing:.5px}
+  h1 .cube{color:var(--accent)}
+  .tag{color:var(--muted);font-size:clamp(15px,3vw,18px);margin:6px 0 0}
+  .honest{max-width:760px;margin:14px auto 0;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 14px;color:var(--muted);font-size:14px}
+  .honest b{color:var(--ink)}
+  .grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:20px}
+  @media(min-width:900px){.grid{grid-template-columns:380px 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .card h2{margin:0 0 10px;font-size:19px}
+  .btn{display:inline-block;background:var(--accent-deep);color:#fff;border:0;border-radius:10px;padding:11px 16px;font-size:15.5px;cursor:pointer;font-weight:600}
+  .btn:hover{background:var(--accent);color:#04222e}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:500}
+  .btn.big{width:100%;padding:14px;font-size:17px;margin-top:12px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .modes{display:flex;gap:8px;margin:4px 0 6px}
+  .modes button{flex:1;padding:11px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:15px;cursor:pointer}
+  .modes button.on{background:var(--accent-deep);border-color:var(--accent-deep);color:#fff;font-weight:700}
+  .mode-note{color:var(--muted);font-size:13.5px;margin:2px 0 8px;min-height:38px}
+  label.ctl{display:block;margin:13px 0 2px;font-size:14.5px}
+  label.ctl output{color:var(--accent);font-weight:700;float:right}
+  input[type=range]{width:100%;accent-color:var(--accent-deep);height:28px}
+  .check{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14.5px}
+  .stats{font-size:13.5px;color:var(--muted);margin-top:10px;line-height:1.7}
+  .stats b{color:var(--ink)}
+  canvas.view{width:100%;border-radius:12px;background:#071a23;display:block}
+  #preview3d{cursor:grab;touch-action:none}
+  .cap{font-size:13px;color:var(--muted);margin:6px 2px 14px}
+  .drop{border:1.5px dashed var(--line);border-radius:12px;padding:14px;text-align:center;color:var(--muted);font-size:14px;margin-top:12px}
+  .drop.over{border-color:var(--accent);color:var(--ink)}
+  .steps{display:grid;grid-template-columns:1fr;gap:12px;margin-top:16px}
+  @media(min-width:760px){.steps{grid-template-columns:repeat(3,1fr)}}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .step h3{margin:0 0 6px;font-size:16px}
+  .step p{margin:0;color:var(--muted);font-size:14px}
+  footer.more{background:#081226;border-radius:16px;margin-top:26px;padding:18px;text-align:center}
+  footer.more .t{color:#fff;font-weight:700;margin-bottom:6px}
+  footer.more a{color:#cfe0ff;text-decoration:none}
+  .fine{color:var(--muted);font-size:13px;text-align:center;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1><span class="cube">▦</span> Scan to 3D</h1>
+    <p class="tag">Turn any photo into a 3D-printable model — right in your browser.</p>
+    <div class="honest"><b>Honest note:</b> one photo can become a <b>lithophane</b> (hold it to the light and the picture appears) or a <b>relief plate</b> (the picture, raised). A single photo can't rebuild the hidden back of an object — that needs a multi-photo scan. Everything here runs on your device; your photo is never uploaded.</div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h2>1 · Your photo</h2>
+      <input type="file" id="file" accept="image/*" hidden>
+      <button class="btn" id="uploadBtn">Upload a photo</button>
+      <button class="btn ghost" id="sampleBtn">Use the sample</button>
+      <div class="drop" id="drop">…or drag &amp; drop a picture here</div>
+
+      <h2 style="margin-top:20px">2 · Model type</h2>
+      <div class="modes">
+        <button id="modeLitho" class="on">Lithophane</button>
+        <button id="modeRelief">Relief plate</button>
+      </div>
+      <p class="mode-note" id="modeNote"></p>
+
+      <h2 style="margin-top:14px">3 · Print settings</h2>
+      <label class="ctl">Print width <output id="oWidth"></output></label>
+      <input type="range" id="rWidth" min="40" max="200" step="5" value="100">
+      <label class="ctl">Max thickness <output id="oThick"></output></label>
+      <input type="range" id="rThick" min="2" max="6" step="0.2" value="3">
+      <label class="ctl">Detail <output id="oDetail"></output></label>
+      <input type="range" id="rDetail" min="80" max="320" step="10" value="200">
+      <label class="ctl">Contrast <output id="oContrast"></output></label>
+      <input type="range" id="rContrast" min="50" max="180" step="5" value="100">
+      <label class="check"><input type="checkbox" id="cInvert"> Invert (swap light &amp; dark)</label>
+
+      <button class="btn big" id="dlBtn">Download the STL file</button>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="card">
+      <h2>Preview</h2>
+      <canvas class="view" id="preview3d" width="640" height="430"></canvas>
+      <p class="cap">Drag to tilt the model. This is a low-detail preview — the downloaded STL uses your full Detail setting.</p>
+      <canvas class="view" id="preview2d" width="640" height="400"></canvas>
+      <p class="cap">The height map: brighter = <span id="mapWord">thinner (more light through)</span>. This is exactly what the printer will carve.</p>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><h3>How a lithophane works</h3><p>The print is one plate of plastic, thin where your photo is bright and thick where it's dark. Lit from behind, the light shines through the thin parts and the picture appears like magic.</p></div>
+    <div class="step"><h3>Printing tips</h3><p>Print standing upright (on its long edge) with a brim, 0.1–0.2&nbsp;mm layers, 100% infill, light-coloured filament. Relief plates print flat, face up, any infill.</p></div>
+    <div class="step"><h3>Best photos</h3><p>Portraits and high-contrast pictures work best. Very dark photos come out thick and muddy — raise the Contrast slider a little and watch the height map.</p></div>
+  </div>
+
+  <p class="fine">Scan to 3D is free and private: the model is built on your device and the STL downloads straight from this page.</p>
+
+  <footer class="more">
+    <div class="t">More from Bangees</div>
+    <nav style="font-size:14.5px;line-height:2;"><a href="https://iambangees.github.io/agent-roll-call/">Agent Roll Call</a> · <a href="https://iambangees.github.io/name-atlas/">Name Atlas</a> · <a href="https://iambangees.github.io/naira-lens/">Naira Lens</a> · <a href="https://iambangees.github.io/aeris/">Aeris</a> · <a href="https://iambangees.github.io/memelab/">MemeLab</a> · <a href="https://iambangees.github.io/vidgrab/">VidGrab</a> · <a href="https://iambangees.github.io/pic-to-draw/">PicToDraw</a> · <a href="https://iambangees.github.io/agent-cards/">Agent Cards</a> · <a href="https://iambangees.github.io/claim-checker/">Claim Checker</a> · <a href="https://iambangees.github.io/bet-diary/">Bet Diary</a> · <a href="https://iambangees.github.io/qr-maker/">QR Maker</a> · <a href="https://discaro.vercel.app">Discaro</a></nav>
+  </footer>
+</div>
+
+<script>
+"use strict";
+/*CORE-START*/
+/* Pure model maths: heights -> watertight triangle mesh -> binary STL.
+   heights: Float32Array of gridW*gridH top-surface Z values (mm).
+   The solid's back sits at z=0; X spans widthMM, Y spans heightMM. */
+function buildTriangles(h, gw, gh, widthMM, heightMM) {
+  const dx = widthMM / (gw - 1), dy = heightMM / (gh - 1);
+  const tris = [];
+  const P = (i, j) => [i * dx, j * dy, h[j * gw + i]];
+  const B = (i, j) => [i * dx, j * dy, 0];
+  const quad = (a, b, c, d) => { tris.push(a, b, c, a, c, d); };
+  for (let j = 0; j < gh - 1; j++) for (let i = 0; i < gw - 1; i++)
+    quad(P(i, j), P(i, j + 1), P(i + 1, j + 1), P(i + 1, j));           // top
+  for (let i = 0; i < gw - 1; i++) {
+    quad(B(i, 0), B(i + 1, 0), P(i + 1, 0), P(i, 0));                   // front wall
+    quad(B(i, gh - 1), P(i, gh - 1), P(i + 1, gh - 1), B(i + 1, gh - 1)); // back wall
+  }
+  for (let j = 0; j < gh - 1; j++) {
+    quad(B(0, j), P(0, j), P(0, j + 1), B(0, j + 1));                   // left wall
+    quad(B(gw - 1, j), B(gw - 1, j + 1), P(gw - 1, j + 1), P(gw - 1, j)); // right wall
+  }
+  for (let j = 0; j < gh - 1; j++) for (let i = 0; i < gw - 1; i++)
+    quad(B(i, j), B(i + 1, j), B(i + 1, j + 1), B(i, j + 1));           // bottom
+  return tris;
+}
+function trianglesToSTL(tris) {
+  const n = tris.length / 3;
+  const buf = new ArrayBuffer(84 + n * 50);
+  const dv = new DataView(buf);
+  dv.setUint32(80, n, true);
+  let o = 84;
+  for (let t = 0; t < tris.length; t += 3) {
+    const [ax, ay, az] = tris[t], [bx, by, bz] = tris[t + 1], [cx, cy, cz] = tris[t + 2];
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1; nx /= len; ny /= len; nz /= len;
+    dv.setFloat32(o, nx, true); dv.setFloat32(o + 4, ny, true); dv.setFloat32(o + 8, nz, true);
+    const vs = [ax, ay, az, bx, by, bz, cx, cy, cz];
+    for (let k = 0; k < 9; k++) dv.setFloat32(o + 12 + k * 4, vs[k], true);
+    dv.setUint16(o + 48, 0, true);
+    o += 50;
+  }
+  return new Blob([buf], { type: "model/stl" });
+}
+/* heights from brightness values b in [0,1] (row-major, gw*gh) */
+function heightsFromBrightness(b, gw, gh, mode, maxThick) {
+  const out = new Float32Array(gw * gh);
+  for (let k = 0; k < b.length; k++) {
+    out[k] = mode === "litho"
+      ? 0.8 + (1 - b[k]) * (maxThick - 0.8)   // bright = thin (light passes), dark = thick
+      : 1.2 + b[k] * maxThick;                // relief: bright = raised, on a 1.2mm base
+  }
+  return out;
+}
+/*CORE-END*/
+
+const $ = id => document.getElementById(id);
+const state = { img: null, mode: "litho", brightness: null, gw: 0, gh: 0, yaw: -0.6, pitch: 0.9 };
+
+function makeSample() {
+  const c = document.createElement("canvas"); c.width = 640; c.height = 480;
+  const x = c.getContext("2d");
+  const sky = x.createLinearGradient(0, 0, 0, 480);
+  sky.addColorStop(0, "#dfeef5"); sky.addColorStop(0.55, "#9db8c4"); sky.addColorStop(1, "#5d7683");
+  x.fillStyle = sky; x.fillRect(0, 0, 640, 480);
+  x.fillStyle = "#ffffff"; x.beginPath(); x.arc(490, 105, 52, 0, 7); x.fill();       // sun
+  x.fillStyle = "#7d97a5"; x.beginPath();                                            // far hills
+  x.moveTo(0, 300); x.lineTo(150, 205); x.lineTo(300, 290); x.lineTo(450, 200); x.lineTo(640, 285); x.lineTo(640, 480); x.lineTo(0, 480); x.fill();
+  x.fillStyle = "#42565f"; x.beginPath();                                            // near hills
+  x.moveTo(0, 360); x.lineTo(180, 285); x.lineTo(360, 355); x.lineTo(520, 295); x.lineTo(640, 350); x.lineTo(640, 480); x.lineTo(0, 480); x.fill();
+  x.fillStyle = "#1d2c33"; x.fillRect(0, 415, 640, 65);                              // ground
+  x.strokeStyle = "#101c21"; x.lineWidth = 13; x.beginPath();                        // tree trunk
+  x.moveTo(110, 420); x.lineTo(110, 320); x.stroke();
+  x.fillStyle = "#22333b"; x.beginPath(); x.arc(110, 285, 62, 0, 7); x.fill();        // tree canopy
+  x.fillStyle = "#2c414b"; x.beginPath(); x.arc(150, 305, 42, 0, 7); x.fill();
+  const img = new Image();
+  img.onload = () => { state.img = img; rebuild(); };
+  img.src = c.toDataURL("image/png");
+}
+
+function loadFile(file) {
+  if (!file || !/^image\//.test(file.type)) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => { state.img = img; URL.revokeObjectURL(url); rebuild(); };
+  img.src = url;
+}
+
+/* sample the image into a brightness grid at the requested detail */
+function computeBrightness(detail) {
+  const img = state.img; if (!img) return;
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const gw = detail, gh = Math.max(2, Math.round(detail * ih / iw));
+  const c = document.createElement("canvas"); c.width = gw; c.height = gh;
+  const x = c.getContext("2d", { willReadFrequently: true });
+  x.drawImage(img, 0, 0, gw, gh);
+  const px = x.getImageData(0, 0, gw, gh).data;
+  const contrast = +$("rContrast").value / 100, invert = $("cInvert").checked;
+  const b = new Float32Array(gw * gh);
+  for (let k = 0; k < gw * gh; k++) {
+    let v = (0.2126 * px[k * 4] + 0.7152 * px[k * 4 + 1] + 0.0722 * px[k * 4 + 2]) / 255;
+    v = Math.min(1, Math.max(0, (v - 0.5) * contrast + 0.5));
+    b[k] = invert ? 1 - v : v;
+  }
+  state.brightness = b; state.gw = gw; state.gh = gh;
+}
+
+function currentHeights(gw, gh) {
+  // resample the full-res brightness grid down (or up) to gw x gh by nearest cell
+  const b = state.brightness, W = state.gw, H = state.gh;
+  const small = new Float32Array(gw * gh);
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++)
+    small[j * gw + i] = b[Math.floor(j * H / gh) * W + Math.floor(i * W / gw)];
+  return heightsFromBrightness(small, gw, gh, state.mode, +$("rThick").value);
+}
+
+function dimsMM() {
+  const w = +$("rWidth").value;
+  return { w, h: w * state.gh / state.gw };
+}
+
+function draw2D() {
+  const cv = $("preview2d"), x = cv.getContext("2d");
+  const { gw, gh } = state; if (!gw) return;
+  const cell = Math.max(1, Math.floor(Math.min(cv.width / gw, cv.height / gh)));
+  const ox = (cv.width - cell * gw) / 2, oy = (cv.height - cell * gh) / 2;
+  x.fillStyle = "#071a23"; x.fillRect(0, 0, cv.width, cv.height);
+  const hs = currentHeights(gw, gh);
+  let mx = 0; for (const v of hs) mx = Math.max(mx, v);
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+    const t = hs[j * gw + i] / mx;
+    const g = Math.round(30 + t * 225);
+    x.fillStyle = "rgb(" + Math.round(g * 0.45) + "," + g + "," + Math.round(g * 1.05) + ")";
+    x.fillRect(ox + i * cell, oy + j * cell, cell, cell);
+  }
+}
+
+function draw3D() {
+  const cv = $("preview3d"), x = cv.getContext("2d");
+  x.fillStyle = "#071a23"; x.fillRect(0, 0, cv.width, cv.height);
+  if (!state.gw) return;
+  const pw = Math.min(120, state.gw), ph = Math.max(2, Math.round(pw * state.gh / state.gw));
+  const hs = currentHeights(pw, ph);
+  const { w, h } = dimsMM();
+  const dx = w / (pw - 1), dy = h / (ph - 1);
+  const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw), cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
+  const pts = new Float32Array(pw * ph * 3);
+  const scale = Math.min(cv.width, cv.height) * 0.92 / Math.max(w, h);
+  for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) {
+    let X = (i * dx - w / 2) * scale, Y = (j * dy - h / 2) * scale, Z = hs[j * pw + i] * scale;
+    let x1 = X * cy - Y * sy, y1 = X * sy + Y * cy;
+    let z2 = Z * cp - y1 * sp, y2 = Z * sp + y1 * cp;
+    pts[(j * pw + i) * 3] = cv.width / 2 + x1;
+    pts[(j * pw + i) * 3 + 1] = cv.height / 2 - z2;
+    pts[(j * pw + i) * 3 + 2] = y2;
+  }
+  const faces = [];
+  for (let j = 0; j < ph - 1; j++) for (let i = 0; i < pw - 1; i++) {
+    const a = j * pw + i, b2 = a + 1, c = a + pw, d = c + 1;
+    const depth = (pts[a * 3 + 2] + pts[b2 * 3 + 2] + pts[c * 3 + 2] + pts[d * 3 + 2]) / 4;
+    const shade = (hs[a] + hs[b2] + hs[c] + hs[d]) / 4;
+    faces.push([depth, a, b2, d, c, shade]);
+  }
+  faces.sort((p, q) => p[0] - q[0]);
+  let mx = 0; for (const v of hs) mx = Math.max(mx, v);
+  for (const [dep, a, b2, d, c, shade] of faces) {
+    const t = shade / mx;
+    x.beginPath();
+    for (const idx of [a, b2, d, c]) { const px = pts[idx * 3], py = pts[idx * 3 + 1]; if (idx === a) x.moveTo(px, py); else x.lineTo(px, py); }
+    x.closePath();
+    x.fillStyle = "rgb(" + Math.round(20 + t * 60) + "," + Math.round(90 + t * 130) + "," + Math.round(110 + t * 140) + ")";
+    x.fill();
+  }
+}
+
+function updateStats() {
+  if (!state.gw) return;
+  const { w, h } = dimsMM();
+  const tris = 4 * (state.gw - 1) * (state.gh - 1) + 4 * (state.gw - 1) + 4 * (state.gh - 1); // exact count, matches buildTriangles
+  const mb = (84 + tris * 50) / 1048576;
+  $("stats").innerHTML =
+    "Model size: <b>" + w.toFixed(0) + " × " + h.toFixed(0) + " mm</b>, up to <b>" +
+    (+$("rThick").value).toFixed(1) + " mm</b> thick<br>Mesh: <b>" + state.gw + " × " + state.gh +
+    "</b> grid · <b>" + Math.round(tris).toLocaleString() + "</b> triangles · STL ≈ <b>" + mb.toFixed(1) + " MB</b>";
+}
+
+function refreshOutputs() {
+  $("oWidth").textContent = $("rWidth").value + " mm";
+  $("oThick").textContent = (+$("rThick").value).toFixed(1) + " mm";
+  $("oDetail").textContent = $("rDetail").value + " across";
+  $("oContrast").textContent = $("rContrast").value + "%";
+}
+
+function rebuild() {
+  if (!state.img) return;
+  computeBrightness(+$("rDetail").value);
+  refreshOutputs(); draw2D(); draw3D(); updateStats();
+}
+
+function setMode(m) {
+  state.mode = m;
+  $("modeLitho").classList.toggle("on", m === "litho");
+  $("modeRelief").classList.toggle("on", m === "relief");
+  $("modeNote").textContent = m === "litho"
+    ? "A backlit photo panel. Bright parts print thin so light shines through; dark parts print thick. Best with light-coloured filament."
+    : "The picture as a raised surface on a solid base plate — print it, paint it, or use it as a stamp or texture mould.";
+  $("mapWord").textContent = m === "litho" ? "thinner (more light through)" : "higher (more raised)";
+  if (state.img) { draw2D(); draw3D(); updateStats(); }
+}
+
+$("uploadBtn").onclick = () => $("file").click();
+$("file").onchange = e => loadFile(e.target.files[0]);
+$("sampleBtn").onclick = makeSample;
+$("modeLitho").onclick = () => setMode("litho");
+$("modeRelief").onclick = () => setMode("relief");
+for (const id of ["rWidth", "rThick", "rContrast", "cInvert"]) $(id).addEventListener("input", () => { refreshOutputs(); if (state.img) { if (id === "rContrast" || id === "cInvert") computeBrightness(+$("rDetail").value); draw2D(); draw3D(); updateStats(); } });
+$("rDetail").addEventListener("input", rebuild);
+$("dlBtn").onclick = () => {
+  if (!state.gw) return;
+  const { w, h } = dimsMM();
+  const tris = buildTriangles(currentHeights(state.gw, state.gh), state.gw, state.gh, w, h);
+  const blob = trianglesToSTL(tris);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = state.mode === "litho" ? "lithophane.stl" : "relief.stl";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+const drop = $("drop");
+for (const ev of ["dragover", "dragenter"]) drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); });
+for (const ev of ["dragleave", "drop"]) drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); });
+drop.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
+const p3 = $("preview3d"); let drag = null;
+p3.addEventListener("pointerdown", e => { drag = [e.clientX, e.clientY]; p3.setPointerCapture(e.pointerId); });
+p3.addEventListener("pointermove", e => {
+  if (!drag) return;
+  state.yaw += (e.clientX - drag[0]) * 0.008;
+  state.pitch = Math.min(1.45, Math.max(0.05, state.pitch + (e.clientY - drag[1]) * 0.008));
+  drag = [e.clientX, e.clientY]; draw3D();
+});
+p3.addEventListener("pointerup", () => drag = null);
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+setMode("litho");
+makeSample();
+</script>
+</body>
+</html>
